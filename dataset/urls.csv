@@ -1,0 +1,11 @@
+url,label
+https://www.google.com,safe
+http://example.com,safe
+https://github.com,safe
+http://paypal-login-verification.com,phishing
+http://secure-login.bankofexample.com,phishing
+http://free-gift.example.com,phishing
+https://accounts.google.com/somepath,safe
+http://update-account.verify-login.com,phishing
+http://signin.example.net,phishing
+https://wikipedia.org,safe

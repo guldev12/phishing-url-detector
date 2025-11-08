@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AI Phishing URL Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Poppins:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      background: radial-gradient(circle at 20% 20%, #01012b, #000);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Poppins', sans-serif;
+      color: #fff;
+    }
+
+    /* 🌀 Particle background canvas */
+    canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+    }
+
+    /* ⚡ Main holographic card */
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 90%;
+      max-width: 650px;
+      padding: 40px;
+      background: rgba(10, 10, 30, 0.75);
+      border-radius: 20px;
+      border: 1px solid rgba(0,255,255,0.3);
+      box-shadow:
+        0 0 25px rgba(0,255,255,0.2),
+        inset 0 0 25px rgba(255,0,255,0.1);
+      backdrop-filter: blur(10px);
+      transform-style: preserve-3d;
+      animation: holoFloat 6s ease-in-out infinite;
+    }
+
+    @keyframes holoFloat {
+      0%, 100% { transform: translateY(0px) rotateY(0deg); }
+      50% { transform: translateY(-10px) rotateY(2deg); }
+    }
+
+    h1 {
+      text-align: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 26px;
+      letter-spacing: 2px;
+      background: linear-gradient(90deg, #00e6ff, #ff00e6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 20px rgba(0,255,255,0.4);
+      margin-bottom: 25px;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      color: #00e6ff;
+      font-size: 15px;
+      outline: none;
+      box-shadow: inset 0 0 10px rgba(0,255,255,0.3);
+      transition: 0.3s;
+    }
+
+    input[type="text"]:focus {
+      background: rgba(255,255,255,0.15);
+      box-shadow: 0 0 20px #00e6ff;
+    }
+
+    button {
+      position: relative;
+      overflow: hidden;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 15px;
+      color: #fff;
+      cursor: pointer;
+      background: linear-gradient(135deg, #00e6ff, #ff00e6);
+      transition: 0.3s ease;
+      letter-spacing: 1px;
+    }
+
+    button:hover {
+      box-shadow: 0 0 25px rgba(0,255,255,0.6), 0 0 25px rgba(255,0,255,0.6);
+      transform: scale(1.03);
+    }
+
+    /* 🧪 Result Panels */
+    .result, .vtbox {
+      background: rgba(255,255,255,0.06);
+      border-left: 4px solid #00e6ff;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 20px;
+      box-shadow: inset 0 0 15px rgba(0,255,255,0.2);
+      animation: holoFade 1s ease;
+    }
+
+    @keyframes holoFade {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result strong, .vtbox h3 {
+      color: #00e6ff;
+      font-weight: 600;
+    }
+
+    #vt-status {
+      background: rgba(255,255,255,0.08);
+      padding: 10px;
+      border-radius: 10px;
+      margin-top: 8px;
+      color: #f0f9ff;
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+    }
+
+    footer {
+      margin-top: 25px;
+      text-align: center;
+      font-size: 13px;
+      color: #b3c5ff;
+    }
+
+    footer a {
+      color: #ff00e6;
+      text-decoration: none;
+    }
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles"></canvas>
+
+  <div class="container">
+    <h1>🤖 AI Phishing URL Detector</h1>
+    <form method="POST">
+      <input type="text" name="url" placeholder="Enter full URL (e.g. https://example.com)" value="{{ url }}" required>
+      <button type="submit">⚡ Scan URL</button>
+    </form>
+
+    {% if result %}
+      {% if result.error %}
+        <div class="result">{{ result.error }}</div>
+      {% else %}
+        <div class="result">
+          <strong>Prediction:</strong> {{ result.label }}<br>
+          {% if result.confidence %}
+          <strong>Confidence:</strong> {{ '%.2f'|format(result.confidence*100) }}%
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endif %}
+
+    {% if vt %}
+      <div class="vtbox">
+        <h3>🧠 VirusTotal Analysis</h3>
+        <div id="vt-status">Analyzing...</div>
+      </div>
+
+      {% set safe_vt = vt | tojson | default('{}') %}
+      <script>
+        const vtData = JSON.parse({{ safe_vt | tojson | safe }});
+        if(vtData && vtData.analysis_id){
+          const id = vtData.analysis_id;
+          const div = document.getElementById('vt-status');
+          let n=0;
+          async function poll(){
+            n++;
+            try{
+              const r = await fetch(`/api/vt_status/${id}`);
+              const d = await r.json();
+              if(d.status==="completed"){
+                const s=d.stats||{};
+                div.innerHTML=`<strong>Status:</strong> ${d.status}<br>
+                <strong>Malicious:</strong> ${s.malicious||0}<br>
+                <strong>Suspicious:</strong> ${s.suspicious||0}<br>
+                <strong>Harmless:</strong> ${s.harmless||0}<br>
+                <strong>Undetected:</strong> ${s.undetected||0}`;
+              } else if(d.status==="queued" && n<20){
+                div.innerHTML="🔄 VirusTotal is analyzing... ("+n+")";
+                setTimeout(poll,4000);
+              } else {
+                div.innerHTML="Status: "+(d.status||"unknown");
+              }
+            } catch(e){
+              div.innerHTML="⚠️ Error: "+e;
+            }
+          }
+          poll();
+        } else {
+          document.getElementById('vt-status').innerText="No VirusTotal analysis started yet.";
+        }
+      </script>
+    {% endif %}
+
+    <footer>
+      <p>🔗 View detailed report on <a href="/dashboard">AI Dashboard</a></p>
+    </footer>
+  </div>
+
+  <!-- 🌌 Particle Background Animation -->
+  <script>
+    const c = document.getElementById('particles');
+    const ctx = c.getContext('2d');
+    let particles = [];
+    const num = 70;
+
+    function resize() {
+      c.width = window.innerWidth;
+      c.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    for(let i=0;i<num;i++){
+      particles.push({
+        x: Math.random()*c.width,
+        y: Math.random()*c.height,
+        dx: (Math.random()-0.5)*1.5,
+        dy: (Math.random()-0.5)*1.5,
+        size: Math.random()*2+1
+      });
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,c.width,c.height);
+      for(let p of particles){
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+        ctx.fillStyle='rgba(0,255,255,0.7)';
+        ctx.fill();
+        p.x+=p.dx; p.y+=p.dy;
+        if(p.x<0||p.x>c.width) p.dx*=-1;
+        if(p.y<0||p.y>c.height) p.dy*=-1;
+      }
+      for(let i=0;i<num;i++){
+        for(let j=i;j<num;j++){
+          let a=particles[i],b=particles[j];
+          let dist=Math.hypot(a.x-b.x,a.y-b.y);
+          if(dist<120){
+            ctx.strokeStyle='rgba(255,0,255,'+(1-dist/120)+')';
+            ctx.lineWidth=0.5;
+            ctx.beginPath();
+            ctx.moveTo(a.x,a.y);
+            ctx.lineTo(b.x,b.y);
+            ctx.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+</body>
+</html>

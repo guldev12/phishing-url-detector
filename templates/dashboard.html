@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AI Dashboard — Phishing Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Poppins:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+
+    body{
+      background:radial-gradient(circle at 20% 20%,#01012b,#000);
+      color:#fff;
+      font-family:'Poppins',sans-serif;
+      min-height:100vh;
+      overflow:hidden;
+      padding:30px;
+      position:relative;
+    }
+
+    /* 🌌 Animated particle background */
+    canvas#particles{
+      position:fixed;
+      top:0;left:0;
+      width:100%;height:100%;
+      z-index:0;
+    }
+
+    h1{
+      text-align:center;
+      font-family:'Orbitron',sans-serif;
+      font-size:26px;
+      background:linear-gradient(90deg,#00e6ff,#ff00e6);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      text-shadow:0 0 20px rgba(0,255,255,0.4);
+      margin-bottom:25px;
+      position:relative;
+      z-index:1;
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns:1fr 380px;
+      gap:20px;
+      position:relative;
+      z-index:1;
+    }
+
+    .card{
+      background:rgba(10,10,30,0.7);
+      border-radius:16px;
+      padding:16px;
+      border:1px solid rgba(0,255,255,0.3);
+      box-shadow:0 0 25px rgba(255,0,255,0.15), inset 0 0 15px rgba(0,255,255,0.1);
+      backdrop-filter:blur(8px);
+      animation:floatCard 6s ease-in-out infinite;
+    }
+
+    @keyframes floatCard{
+      0%,100%{transform:translateY(0px);}
+      50%{transform:translateY(-6px);}
+    }
+
+    .cards{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:15px;
+      margin-bottom:25px;
+    }
+
+    .card .small{font-size:13px;color:#a5b4fc;}
+    .card div{transition:0.3s;}
+
+    .cards .card{
+      text-align:center;
+      padding:18px;
+      font-size:15px;
+    }
+
+    .cards .card:hover{
+      transform:scale(1.04);
+      box-shadow:0 0 25px rgba(0,255,255,0.3);
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:10px;
+      background:rgba(255,255,255,0.03);
+      border-radius:10px;
+      overflow:hidden;
+      font-size:14px;
+    }
+
+    th,td{
+      padding:10px 12px;
+      text-align:left;
+    }
+
+    th{
+      background:rgba(255,0,255,0.15);
+      color:#00e6ff;
+      font-weight:600;
+    }
+
+    tr:nth-child(even){
+      background:rgba(255,255,255,0.04);
+    }
+
+    input{
+      width:100%;
+      padding:10px;
+      border:none;
+      border-radius:10px;
+      background:rgba(255,255,255,0.08);
+      color:#00e6ff;
+      outline:none;
+      font-size:14px;
+      box-shadow:inset 0 0 8px rgba(0,255,255,0.2);
+    }
+
+    input:focus{
+      background:rgba(255,255,255,0.12);
+      box-shadow:0 0 12px rgba(255,0,255,0.4);
+    }
+
+    #topDomains div{
+      margin-bottom:6px;
+      color:#d1d5ff;
+    }
+
+    @media(max-width:1000px){
+      .layout{grid-template-columns:1fr;}
+      .cards{grid-template-columns:1fr 1fr;}
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles"></canvas>
+
+  <h1>🚀 AI Phishing Detector — Dashboard</h1>
+
+  <div class="cards" id="statsCards">
+    <div class="card">
+      <div class="small">Total Checked</div>
+      <div id="totalChecked" style="font-size:22px;">0</div>
+    </div>
+    <div class="card">
+      <div class="small">Malicious</div>
+      <div id="totalMalicious" style="font-size:22px; color:#ff7b7b;">0</div>
+    </div>
+    <div class="card">
+      <div class="small">Suspicious</div>
+      <div id="totalSuspicious" style="font-size:22px; color:#ffd36b;">0</div>
+    </div>
+    <div class="card">
+      <div class="small">Safe</div>
+      <div id="totalSafe" style="font-size:22px; color:#7be7d8;">0</div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="left">
+      <div class="card">
+        <canvas id="trendChart" height="160"></canvas>
+      </div>
+
+      <div style="margin-top:18px;" class="card">
+        <div class="small">Recent URL Checks</div>
+        <div style="overflow-x:auto; margin-top:8px;">
+          <table id="checksTable">
+            <thead>
+              <tr><th>URL</th><th>Prediction</th><th>Confidence</th><th>VT Malicious</th><th>When</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="card">
+        <div class="small">Search / Filter</div>
+        <input id="searchInput" placeholder="Search URL...">
+      </div>
+
+      <div class="card" style="margin-top:12px;">
+        <div class="small">Top Domains (by flags)</div>
+        <div id="topDomains" style="margin-top:10px;">—</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    const checksTableBody = document.querySelector('#checksTable tbody');
+    const totalCheckedEl = document.getElementById('totalChecked');
+    const totalMaliciousEl = document.getElementById('totalMalicious');
+    const totalSuspiciousEl = document.getElementById('totalSuspicious');
+    const totalSafeEl = document.getElementById('totalSafe');
+    const searchInput = document.getElementById('searchInput');
+    const topDomainsEl = document.getElementById('topDomains');
+
+    let checks = [];
+
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label:'Malicious', data:[], borderColor:'#ff00e6', backgroundColor:'rgba(255,0,230,0.15)', fill:true, tension:0.3 },
+          { label:'Safe', data:[], borderColor:'#00e6ff', backgroundColor:'rgba(0,230,255,0.15)', fill:true, tension:0.3 }
+        ]
+      },
+      options:{
+        scales:{
+          x:{ticks:{color:'#f0f0f0'},grid:{color:'rgba(255,255,255,0.05)'}},
+          y:{ticks:{color:'#f0f0f0'},grid:{color:'rgba(255,255,255,0.05)'}}
+        },
+        plugins:{legend:{labels:{color:'#f0f0f0'}}}
+      }
+    });
+
+    async function loadRecent(){
+      const res = await fetch('/api/recent_checks');
+      const data = await res.json();
+      checks = data;
+      renderAll();
+    }
+
+    function renderAll(){ renderStats(); renderTable(); renderChart(); renderTopDomains(); }
+
+    function renderStats(){
+      const total = checks.length;
+      const malicious = checks.filter(c=>c.label==='Malicious').length;
+      const suspicious = checks.filter(c=>c.label==='Suspicious').length;
+      const safe = checks.filter(c=>c.label==='Safe').length;
+      totalCheckedEl.innerText=total;
+      totalMaliciousEl.innerText=malicious;
+      totalSuspiciousEl.innerText=suspicious;
+      totalSafeEl.innerText=safe;
+    }
+
+    function renderTable(filter=''){
+      checksTableBody.innerHTML='';
+      const list = checks.filter(c=>c.url.toLowerCase().includes(filter.toLowerCase()));
+      for(const c of list.slice(0,200)){
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;">${c.url}</td>
+        <td>${c.label}</td>
+        <td>${(c.confidence?(c.confidence*100).toFixed(2)+'%':'—')}</td>
+        <td>${c.vt_malicious||0}</td>
+        <td>${c.timestamp}</td>`;
+        checksTableBody.appendChild(tr);
+      }
+    }
+
+    function renderChart(){
+      const labels=[],maliciousSeries=[],safeSeries=[];
+      const countsByDate={};
+      for(const c of checks.slice().reverse()){
+        const day=c.timestamp.split(' ')[0];
+        if(!countsByDate[day])countsByDate[day]={malicious:0,safe:0};
+        if(c.label==='Malicious')countsByDate[day].malicious++;
+        else countsByDate[day].safe++;
+      }
+      const days=Object.keys(countsByDate).slice(-14);
+      for(const d of days){
+        labels.push(d);
+        maliciousSeries.push(countsByDate[d].malicious||0);
+        safeSeries.push(countsByDate[d].safe||0);
+      }
+      chart.data.labels=labels;
+      chart.data.datasets[0].data=maliciousSeries;
+      chart.data.datasets[1].data=safeSeries;
+      chart.update();
+    }
+
+    function renderTopDomains(){
+      const domainCounts={};
+      for(const c of checks){
+        try{
+          const url=new URL(c.url);
+          const domain=url.hostname.replace('www.','');
+          if(!domainCounts[domain])domainCounts[domain]={malicious:0,total:0};
+          domainCounts[domain].total++;
+          if(c.label==='Malicious')domainCounts[domain].malicious++;
+        }catch(e){}
+      }
+      const arr=Object.entries(domainCounts).map(([d,v])=>({domain:d,...v}));
+      arr.sort((a,b)=>(b.malicious-b.malicious)||(b.total-b.total));
+      const top=arr.slice(0,7);
+      if(top.length===0){topDomainsEl.innerText='—';return;}
+      topDomainsEl.innerHTML=top.map(x=>`<div><strong>${x.domain}</strong> — flags: ${x.malicious}/${x.total}</div>`).join('');
+    }
+
+    socket.on('new_check',data=>{
+      checks.unshift(data);
+      renderAll();
+    });
+
+    searchInput.addEventListener('input',e=>renderTable(e.target.value));
+    loadRecent();
+
+    // 🌠 Particle background
+    const canvas=document.getElementById('particles');
+    const ctx2=canvas.getContext('2d');
+    let p=[];
+    function resize(){
+      canvas.width=window.innerWidth;
+      canvas.height=window.innerHeight;
+    }
+    window.addEventListener('resize',resize); resize();
+    for(let i=0;i<70;i++){
+      p.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,dx:(Math.random()-0.5)*1.5,dy:(Math.random()-0.5)*1.5,size:Math.random()*2+1});
+    }
+    function draw(){
+      ctx2.clearRect(0,0,canvas.width,canvas.height);
+      for(let a of p){
+        ctx2.beginPath();
+        ctx2.arc(a.x,a.y,a.size,0,Math.PI*2);
+        ctx2.fillStyle='rgba(0,255,255,0.7)';
+        ctx2.fill();
+        a.x+=a.dx; a.y+=a.dy;
+        if(a.x<0||a.x>canvas.width)a.dx*=-1;
+        if(a.y<0||a.y>canvas.height)a.dy*=-1;
+      }
+      for(let i=0;i<p.length;i++){
+        for(let j=i;j<p.length;j++){
+          let a=p[i],b=p[j],d=Math.hypot(a.x-b.x,a.y-b.y);
+          if(d<120){
+            ctx2.strokeStyle='rgba(255,0,255,'+(1-d/120)+')';
+            ctx2.lineWidth=0.4;
+            ctx2.beginPath();
+            ctx2.moveTo(a.x,a.y);
+            ctx2.lineTo(b.x,b.y);
+            ctx2.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+</body>
+</html>
