@@ -135,3 +135,7 @@ if __name__ == '__main__':
     # set VT_API_KEY=your_api_key_here  (Windows)
     # export VT_API_KEY=your_api_key_here  (Mac/Linux)
     app.run(debug=True)
+
+    if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
+
